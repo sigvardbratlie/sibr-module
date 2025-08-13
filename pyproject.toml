@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sibr-module"
 version = "0.1.0"
@@ -5,30 +9,26 @@ authors = [
     { name="Sigvard Bratlie", email="sigvard@sibr.no" },
 ]
 description = "Help modules for different applications, especially for google cloud"
+readme = "README.md" # Lag denne filen!
 requires-python = ">=3.9"
+license = { text = "MIT License" } # Legg til en LICENSE-fil!
+keywords = ["google cloud", "bigquery", "gcs", "utilities"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
  'bigframes',
  'db-dtypes',
  'gcsfs',
  'google-api-core',
- 'google-auth',
- 'google-auth-oauthlib',
- 'google-cloud',
- 'google-cloud-appengine-logging',
- 'google-cloud-audit-log',
- 'google-cloud-bigquery',
- 'google-cloud-bigquery-connection',
- 'google-cloud-bigquery-storage',
- 'google-cloud-core',
- 'google-cloud-functions',
- 'google-cloud-iam',
- 'google-cloud-logging',
- 'google-cloud-resource-manager',
- 'google-cloud-storage',
- 'google-cloud-secret-manager',
- 'google-crc32c',
- 'grpcio',
- 'numpy',
- 'pandas',
- 'pandas-gbq',
- 'pyarrow']
+ # ... resten av avhengighetene
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ditt-brukernavn/sibr-module" # Eksempel
+"Bug Tracker" = "https://github.com/ditt-brukernavn/sibr-module/issues" # Eksempel
