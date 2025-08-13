@@ -1,4 +1,4 @@
-from google_helpers import BigQuery, Logger, SecretsManager, CStorage
+from src.sibr_module.google_helpers import BigQuery, Logger, SecretsManager, CStorage
 
 __all__ = [
     "BigQuery",
