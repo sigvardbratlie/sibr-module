@@ -6,7 +6,6 @@ from src.sibr_module.google_helpers import *
 from dotenv import load_dotenv
 load_dotenv()
 
-PROJECT_ID = os.getenv("PROJECT_ID")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 
 
@@ -14,12 +13,12 @@ class TestBigQuery:
 
     @pytest.fixture(scope="module", autouse=True)
     def test_fix(self):
-        return BigQuery(project_id=PROJECT_ID)
+        return BigQuery()
 
     def test_init(self,test_fix):
-        assert test_fix.project == PROJECT_ID, "project should be set by init"
+        assert test_fix.project == "sibr-admin", "project should be set by init"
         assert test_fix._logger is not None, "Logger should not be None"
-        assert test_fix._bq_client.project == PROJECT_ID, "project should be set by init"
+        assert test_fix._bq_client.project == "sibr-admin", "project should be set by init"
 
     def test_to_bq(self, test_fix):
         df = pd.DataFrame({'a': [1, np.nan]})

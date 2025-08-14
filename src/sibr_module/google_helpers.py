@@ -191,7 +191,7 @@ class BigQuery:
         Attributes:
             project (str): The Google Cloud project ID associated with the client.
         """
-    def __init__(self, project_id : str, logger = None, dataset : str = None):
+    def __init__(self, project_id : str = None, logger = None, dataset : str = None):
         '''
         Initialize a BigQuery client.
         :param project_id: Your Google Cloud project ID.
@@ -202,8 +202,13 @@ class BigQuery:
             logger = Logger("BigQuery")
         self._logger = logger
         self.dataset = dataset
+        if project_id is None:
+            cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            with open(cred_path,"r") as f:
+                cred = json.load(f)
+                project_id = cred.get("project_id")
+        self.project = project_id
         try:
-            self.project = project_id
             self._bq_client = bigquery.Client(project=self.project)
             self._credentials = self._bq_client._credentials
 
@@ -448,12 +453,17 @@ class SecretsManager:
             project (str): The Google Cloud project ID associated with the client.
             client: The underlying SecretManagerServiceClient instance.
         """
-    def __init__(self, project_id: str, logger = None):
+    def __init__(self, project_id: str = None, logger = None):
         '''
         Initialize a SecretsManager client.
         :param project_id:
         :param logger: Optional, a Logger instance for logging.
         '''
+        if project_id is None:
+            cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            with open(cred_path, "r") as f:
+                cred = json.load(f)
+                project_id = cred.get("project_id")
         self.project = project_id
         if logger is None:
             logger = Logger("SecretsManager")
@@ -482,11 +492,8 @@ class CStorage:
         This class simplifies uploading and downloading files to a specific
         GCS bucket. It can also read the content of certain file types
         directly into memory (e.g., into a pandas DataFrame).
-
-        Attributes:
-            project (str): The Google Cloud project ID.
         """
-    def __init__(self,project_id,bucket_name, logger = None):
+    def __init__(self,bucket_name : str,project_id : str = None, logger = None):
         '''
         Initialize a Google Cloud Storage client.
         :param project_id:
@@ -497,6 +504,11 @@ class CStorage:
             logger = Logger("CStorage")
         self._logger = logger
         self._bucket_name = bucket_name
+        if project_id is None:
+            cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            with open(cred_path, "r") as f:
+                cred = json.load(f)
+                project_id = cred.get("project_id")
         self.project = project_id
         try:
             self._client = storage.Client(project=project_id)
