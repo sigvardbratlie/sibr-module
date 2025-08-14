@@ -14,6 +14,9 @@ from google.cloud.logging_v2.handlers import CloudLoggingHandler
 import logging
 from pathlib import Path
 import os
+import joblib
+import json
+import yaml
 
 try:
     import tomllib
@@ -22,7 +25,7 @@ except ImportError:
 
 
 class Logger:
-    def __init__(self, log_name, root_path=None, write_type='a', enable_cloud_logging=False):
+    def __init__(self, log_name, root_path=None, write_type='a', enable_cloud_logging=False, cloud_log_name = None):
         '''
 
         :param log_name:
@@ -45,19 +48,21 @@ class Logger:
             self._logger.handlers.clear()
         self._create_handlers()
         if enable_cloud_logging:
-            self._logger.info(f'Cloud Logging is enabled. Initializing Google Cloud Logging for {self._logName}.')
+            if cloud_log_name is None:
+                cloud_log_name = log_name
+            self.cloud_log_name = cloud_log_name
+            self._logger.info(f'Cloud Logging is enabled. Initializing Google Cloud Logging for {self._logName} with cloud_log_name {self.cloud_log_name}.')
             self.setup_cloudlogging()
         else:
             self._logger.info(f'Cloud Logging is disabled. Using local logging to {self._path}.')
 
 
     def setup_cloudlogging(self):
-        self._cloud_log_name = self._logName
         self.client = None
         try:
             self.client = cloud_logging.Client()
             self.client.setup_logging()
-            cloud_handler = CloudLoggingHandler(self.client, name=self._cloud_log_name)
+            cloud_handler = CloudLoggingHandler(self.client, name=self.cloud_log_name)
             cloud_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(cloud_handler)
             self._logger.info(f'Google Cloud Logging initialized with project: {self.client.project}')
@@ -388,7 +393,7 @@ class BigQuery:
 
 class SecretsManager:
     def __init__(self, project_id: str, logger = None):
-        self.project_id = project_id
+        self.project = project_id
         if logger is None:
             logger = Logger("SecretsManager")
         self.logger = logger
@@ -396,11 +401,11 @@ class SecretsManager:
         self.logger.info("SecretsManager initialized.")
 
     def get_secret(self, secret_id: str):
-        name = {"name": f'projects/{self.project_id}/secrets/{secret_id}/versions/latest'}
+        name = {"name": f'projects/{self.project}/secrets/{secret_id}/versions/latest'}
         try:
             response = self.client.access_secret_version(name)
             if response:
-                self.logger.info(f"Read in secret: {secret_id} from project {self.project_id}")
+                self.logger.info(f"Read in secret: {secret_id} from project {self.project}")
                 return response.payload.data.decode("UTF-8")
         except Exception as e:
             self.logger.error(str(e))
@@ -418,6 +423,7 @@ class CStorage:
             logger = Logger("CStorage")
         self._logger = logger
         self._bucket_name = bucket_name
+        self.project = project_id
         try:
             self._client = storage.Client(project=project_id)
             self._logger.info(f"Google Cloud Storage client initialized with bucket: {self._bucket_name}")
@@ -425,7 +431,7 @@ class CStorage:
             self._logger.error(f"Error initializing Google Cloud Storage client: {e}")
             raise ImportError(f"Error initializing Google Cloud Storage client: {e}")
 
-    def upload(self, local_file_path, destination_blob_name=None):
+    def upload(self, local_file_path : str, destination_blob_name : str=None):
         '''
         Uploads a file to Google Cloud Storage.
         :param local_file_path: Inlcudes the full path to the file with file-extension.
@@ -440,7 +446,6 @@ class CStorage:
                 destination_blob_name = local_file_path.split('/')[-1]
             else:
                 destination_blob_name = local_file_path
-
         try:
             bucket = self._client.bucket(self._bucket_name)
             blob = bucket.blob(destination_blob_name)
@@ -452,12 +457,13 @@ class CStorage:
             self._logger.error(f"Failed to upload file {local_file_path} to bucket {self._bucket_name}: {e}")
             raise e
 
-    def download(self, source_blob_name, destination_file_path=None, read_in_file=False):
+    def download(self, source_blob_name : str, destination_file_path : str = None, read_in_file : bool =False):
         '''
-        Downloads a file from Google Cloud Storage. Reads in file if file extension is csv or pkl.
+        Downloads a file from Google Cloud Storage. Available formats are ['pkl', 'csv','txt','json','xlsx','xls','yaml','yml'].
+        .csv and .xlsx and .xls are read into to a pandas dataframe
         :param source_blob_name:
         :param destination_file_path:
-        :param read_in_file:
+        :param read_in_file: bool
         :return:
         '''
         if not read_in_file and not destination_file_path:
@@ -472,7 +478,7 @@ class CStorage:
                 blob.download_to_filename(destination_file_path)
                 self._logger.info(f"Blob {source_blob_name} downloaded to {destination_file_path}.")
             if read_in_file:
-                valid_ext = ['pkl', 'csv']
+                valid_ext = ['pkl', 'csv','txt','json','xlsx','xls','yaml','yml']
                 if "." in name:
                     ext = name.split('.')[-1]
                     if ext not in valid_ext:
@@ -481,6 +487,20 @@ class CStorage:
                         blob.download_to_filename(temp_filepath)
                         if ext == 'csv':
                             output = pd.read_csv(temp_filepath)
+                        elif ext in ["xlsx","xls"]:
+                            output = pd.read_excel(temp_filepath)
+
+                        elif ext == 'txt':
+                            with open(temp_filepath, "r") as f:
+                                output = f.read()
+                        elif ext == "json":
+                            with open(temp_filepath, "r") as f:
+                                output = json.load(f)
+                        elif ext in ('yaml', 'yml'):
+                            with open(temp_filepath, 'r') as f:
+                                output = yaml.safe_load(f)
+                        elif ext == "pkl":
+                            output = joblib.load(temp_filepath)
                         else:
                             output = None
 

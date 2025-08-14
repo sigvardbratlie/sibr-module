@@ -21,13 +21,34 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = [
- 'bigframes',
+dependencies = ['bigframes',
  'db-dtypes',
  'gcsfs',
  'google-api-core',
- # ... resten av avhengighetene
-]
+ 'google-auth',
+ 'google-auth-oauthlib',
+ 'google-cloud',
+ 'google-cloud-appengine-logging',
+ 'google-cloud-audit-log',
+ 'google-cloud-bigquery',
+ 'google-cloud-bigquery-connection',
+ 'google-cloud-bigquery-storage',
+ 'google-cloud-core',
+ 'google-cloud-functions',
+ 'google-cloud-iam',
+ 'google-cloud-logging',
+ 'google-cloud-resource-manager',
+ 'google-cloud-storage',
+ 'google-cloud-secret-manager',
+ 'google-crc32c',
+ 'grpcio',
+ 'numpy',
+ 'pandas',
+ 'pandas-gbq',
+ 'pyarrow',
+ 'joblib',
+ 'PyYaml',
+ 'openpyxl']
 
 [project.urls]
 "Homepage" = "https://github.com/ditt-brukernavn/sibr-module" # Eksempel
