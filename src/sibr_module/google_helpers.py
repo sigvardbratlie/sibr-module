@@ -277,6 +277,30 @@ class BigQuery:
         :param merge_on: Required with if_exists = 'merge'.
         :param dtype_map: Optional. Add a map from datatypes to desired BigQuery types as a dictionary. Examples: dtype_map = {'object': 'STRING','string': 'STRING','int64': 'INTEGER'}
         :return:
+
+        The default dtype_map is defined as
+            dtype_map = {
+                'object': 'STRING',
+                'string': 'STRING',
+                'category': 'STRING',
+                'str': 'STRING',
+                'list': ("STRING", "REPEATED"),
+                'int64': 'INTEGER',
+                'Int64': 'INTEGER',
+                'int64[pyarrow]': 'INTEGER',
+                'float64': 'FLOAT',
+                'Float64': 'FLOAT',
+                'bool': 'BOOLEAN',
+                'boolean': 'BOOLEAN',
+                'decimal.Decimal': "NUMERIC",
+                'Decimal': "NUMERIC",
+                'datetime64[ns]': 'DATETIME',
+                'datetime': 'DATETIME',
+                'datetime64[ns, UTC]': 'TIMESTAMP',
+                'Timestamp': 'TIMESTAMP',
+                'date32[day][pyarrow]': 'DATE',
+                'datetime64[us]': 'DATETIME',
+            }
         '''
         dataset_id = f'{self.project}.{dataset_name}'
         table_id = f"{dataset_id}.{table_name}"
@@ -290,37 +314,25 @@ class BigQuery:
 
         if dtype_map is None:
             dtype_map = {
-                # Generelle typer
                 'object': 'STRING',
                 'string': 'STRING',
                 'category': 'STRING',
                 'str': 'STRING',
                 'list': ("STRING", "REPEATED"),
-                # Heltall
                 'int64': 'INTEGER',
                 'Int64': 'INTEGER',
                 'int64[pyarrow]': 'INTEGER',
-                # Flyttall
                 'float64': 'FLOAT',
                 'Float64': 'FLOAT',
-                # Boolske verdier
                 'bool': 'BOOLEAN',
                 'boolean': 'BOOLEAN',
-                # Numerisk (for desimaltall)
                 'decimal.Decimal': "NUMERIC",
                 'Decimal': "NUMERIC",
-
-                # --- TID & DATO (VIKTIGE ENDRINGER) ---
-                # For tidspunkter UTEN tidssone (naive) -> DATETIME
                 'datetime64[ns]': 'DATETIME',
-                'datetime': 'DATETIME',  # Pythons native datetime kan være naiv
-                # For tidspunkter MED tidssone (aware) -> TIMESTAMP
-                # Dette er den vanligste og beste typen for hendelsesdata.
+                'datetime': 'DATETIME',
                 'datetime64[ns, UTC]': 'TIMESTAMP',
-                'Timestamp': 'TIMESTAMP',  # En pandas Timestamp er oftest tidssone-bevisst
-                # For rene datoer
+                'Timestamp': 'TIMESTAMP',
                 'date32[day][pyarrow]': 'DATE',
-                # Andre mindre vanlige tidsformater
                 'datetime64[us]': 'DATETIME',
             }
 
