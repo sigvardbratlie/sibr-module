@@ -345,7 +345,7 @@ class BigQuery:
             correct_dtype = self._get_dtype(df = df,
                                             column_name=str(column_name))
             bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
-            if correct_dtype not in dtype_map.keys():
+            if correct_dtype not in dtype_map.keys() and correct_dtype is not None:
                 self._logger.warning(f"No mapping from {correct_dtype} to Big Query types. Current mapping: {dtype_map}")
 
             if isinstance(bq_spec, tuple):
