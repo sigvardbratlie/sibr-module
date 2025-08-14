@@ -191,15 +191,17 @@ class BigQuery:
         Attributes:
             project (str): The Google Cloud project ID associated with the client.
         """
-    def __init__(self, project_id : str, logger = None):
+    def __init__(self, project_id : str, logger = None, dataset : str = None):
         '''
         Initialize a BigQuery client.
         :param project_id: Your Google Cloud project ID.
         :param logger: Optional, a Logger instance for logging.
+        :param dataset: Optional, the name of the BigQuery dataset.
         '''
         if not logger:
             logger = Logger("BigQuery")
         self._logger = logger
+        self.dataset = dataset
         try:
             self.project = project_id
             self._bq_client = bigquery.Client(project=self.project)
