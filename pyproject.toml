@@ -11,7 +11,7 @@ authors = [
 description = "Help modules for different applications, especially for google cloud"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT License" }
+license = { text = "LICENSE" }
 keywords = ["google cloud", "bigquery", "gcs", "utilities"]
 classifiers = [
     "Programming Language :: Python :: 3",
