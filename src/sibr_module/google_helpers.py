@@ -259,8 +259,14 @@ class BigQuery:
         first_valid_element = non_null_series.iloc[0]
         return type(first_valid_element).__name__
 
-    def to_bq(self, df : pd.DataFrame, table_name : str, dataset_name : str, if_exists: Literal['append', 'replace', 'merge'] = 'append',
-              to_str=False, merge_on=None,dtype_map : dict = None):
+    def to_bq(self,
+              df : pd.DataFrame,
+              table_name : str,
+              dataset_name : str,
+              if_exists: Literal['append', 'replace', 'merge'] = 'append',
+              to_str=False,
+              merge_on=None,
+              dtype_map : dict = None):
         '''
         Save a DataFrame to BigQuery.
         :param df:

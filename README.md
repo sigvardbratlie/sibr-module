@@ -20,6 +20,8 @@ Ensure you are authenticated with Google Cloud. You can do this by running:
 
 ```gcloud auth application-default login```
 
+If in use locally, make sure to set your credentials available as environment variables using: `GOOGLE_APPLICATION_CREDENTIALS=path-to-your-credentials`.
+
 ```python
 import pandas as pd
 from sibr_module import BigQuery, Logger
@@ -60,12 +62,12 @@ The BigQuery class handles interactions with Google BigQuery.
   * if_exists='replace': Deletes the existing table and creates a new one.
   * if_exists='merge': Updates existing rows and inserts new ones. Requires merge_on to be set with a list of key columns.
   * read_bq(query): Executes a query and returns the result as a pandas DataFrame.
+  * dtype_map: Optional argument if the user wishes to specify a certain mapping of dtypes to Big Query types
 
 ### CStorage
 The CStorage class simplifies file operations with Google Cloud Storage.
 
 * upload(local_file_path, destination_blob_name): Uploads a local file to the bucket.
-
 * download(source_blob_name, destination_file_path): Downloads a file from the bucket.
 
 ### SecretsManager
