@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sibr-module"
-version = "0.1.2"
+version = "0.1.3"
 authors = [
     { name="Sigvard Bratlie", email="sigvard@sibr.no" },
 ]
@@ -49,7 +49,7 @@ dependencies = ['bigframes',
  'joblib',
  'PyYaml',
  'openpyxl',
- 'random']
+]
 
 [project.urls]
 "Homepage" = "https://github.com/sigvardbratlie/sibr-module"
