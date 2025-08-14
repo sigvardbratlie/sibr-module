@@ -41,16 +41,27 @@ class TestCStorage:
         assert test_fix._logger is not None, "Logger should not be None"
         assert test_fix.project == PROJECT_ID, "project should be set by init"
 
-    def test_upload(self, test_fix, tmp_path):
+    def test_upload_txt(self, test_fix, tmp_path):
         local_file = tmp_path / "test.txt"
         local_file.write_text("hello world")
         test_fix.upload(str(local_file), "remote/test.txt")
 
-    def test_download(self, test_fix, tmp_path):
+    def test_upload_csv(self,test_fix):
+        df = pd.DataFrame({'a': [1, 2]})
+        df.to_csv('/tmp/test.csv', index=False)
+        test_fix.upload(local_file_path='/tmp/test.csv', destination_blob_name='remote/test.csv')
+
+    def test_download_txt(self, test_fix, tmp_path):
         #test_fix.upload(str(tmp_path / "test.txt"), "remote/test.txt")
         text = test_fix.download("remote/test.txt", read_in_file=True)
         assert text is not None
         assert isinstance(text,str)
+
+    def test_download_csv(self,test_fix):
+        df = test_fix.download(source_blob_name = 'remote/test.csv',
+                          read_in_file = True)
+        assert isinstance(df, pd.DataFrame)
+        assert len(df)>0
 
 class TestSecretManager:
     @pytest.fixture(scope="module", autouse=True)
