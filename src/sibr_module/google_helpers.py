@@ -428,7 +428,7 @@ class BigQuery:
         else:
             raise ValueError(
                 f"Invalid read_type: {read_type}. Choose between 'bigframes', 'bq_client' and 'pandas_gbq'")
-        df.replace(['nan', 'None', '', 'null', 'NA', '<NA>', 'NaN', 'NAType'], np.nan, inplace=True)
+        #df.replace(['nan', 'None', '', 'null', 'NA', '<NA>', 'NaN', 'NAType'], np.nan, inplace=True)
         self._logger.info(f"{len(df)} rader lest fra BigQuery")
         return df
 
