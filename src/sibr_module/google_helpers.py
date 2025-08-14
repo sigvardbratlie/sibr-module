@@ -260,7 +260,7 @@ class BigQuery:
         return type(first_valid_element).__name__
 
     def to_bq(self, df : pd.DataFrame, table_name : str, dataset_name : str, if_exists: Literal['append', 'replace', 'merge'] = 'append',
-              to_str=False, merge_on=None):
+              to_str=False, merge_on=None,dtype_map : dict = None):
         '''
         Save a DataFrame to BigQuery.
         :param df:
@@ -269,6 +269,7 @@ class BigQuery:
         :param if_exists: Choose between 'append', 'replace', or 'merge'.
         :param to_str: Optional to convert all columns to string.
         :param merge_on: Required with if_exists = 'merge'.
+        :param dtype_map: Optional. Add a map from datatypes to desired BigQuery types as a dictionary. Examples: dtype_map = {'object': 'STRING','string': 'STRING','int64': 'INTEGER'}
         :return:
         '''
         dataset_id = f'{self.project}.{dataset_name}'
@@ -281,27 +282,41 @@ class BigQuery:
         except Exception:
             table_exists = False
 
-        type_mapping = {
-            'object': 'STRING',
-            'string': 'STRING',
-            'int64': 'INTEGER',
-            'Int64': 'INTEGER',
-            'int64[pyarrow]': 'INTEGER',
-            'float64': 'FLOAT',
-            'Float64': 'FLOAT',
-            'bool': 'BOOLEAN',
-            'decimal.Decimal' : "NUMERIC",
-            'Decimal' : "NUMERIC",
-            'boolean': 'BOOLEAN',
-            'datetime64[ns]': 'DATETIME',
-            'datetime64[ns, UTC]': 'DATETIME',
-            'date32[day][pyarrow]': 'DATE',
-            'datetime64[us]': 'DATETIME',
-            'category': 'STRING',
-            'str' : 'STRING',
-            'list' : ("STRING", "REPEATED"),
-            'datetime' : 'DATETIME'
-        }
+        if dtype_map is None:
+            dtype_map = {
+                # Generelle typer
+                'object': 'STRING',
+                'string': 'STRING',
+                'category': 'STRING',
+                'str': 'STRING',
+                'list': ("STRING", "REPEATED"),
+                # Heltall
+                'int64': 'INTEGER',
+                'Int64': 'INTEGER',
+                'int64[pyarrow]': 'INTEGER',
+                # Flyttall
+                'float64': 'FLOAT',
+                'Float64': 'FLOAT',
+                # Boolske verdier
+                'bool': 'BOOLEAN',
+                'boolean': 'BOOLEAN',
+                # Numerisk (for desimaltall)
+                'decimal.Decimal': "NUMERIC",
+                'Decimal': "NUMERIC",
+
+                # --- TID & DATO (VIKTIGE ENDRINGER) ---
+                # For tidspunkter UTEN tidssone (naive) -> DATETIME
+                'datetime64[ns]': 'DATETIME',
+                'datetime': 'DATETIME',  # Pythons native datetime kan være naiv
+                # For tidspunkter MED tidssone (aware) -> TIMESTAMP
+                # Dette er den vanligste og beste typen for hendelsesdata.
+                'datetime64[ns, UTC]': 'TIMESTAMP',
+                'Timestamp': 'TIMESTAMP',  # En pandas Timestamp er oftest tidssone-bevisst
+                # For rene datoer
+                'date32[day][pyarrow]': 'DATE',
+                # Andre mindre vanlige tidsformater
+                'datetime64[us]': 'DATETIME',
+            }
 
         explicit_schema = {
         }
@@ -309,8 +324,11 @@ class BigQuery:
         schema = []
         column_to_bq_type = {}
         for column_name, dtype in df.dtypes.items():
-            correct_dtype = self._get_dtype(df, column_name)
-            bq_spec = explicit_schema.get(column_name, type_mapping.get(correct_dtype, 'STRING'))
+            correct_dtype = self._get_dtype(df = df,
+                                            column_name=str(column_name))
+            bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
+            if correct_dtype not in dtype_map.keys():
+                self._logger.warning(f"No mapping from {correct_dtype} to Big Query types. Current mapping: {dtype_map}")
 
             if isinstance(bq_spec, tuple):
                 # Pakk ut type og modus fra tuppelet
@@ -321,7 +339,7 @@ class BigQuery:
                 bq_type = bq_spec
                 bq_mode = "NULLABLE"  # Standardmodus for vanlige, ikke-påkrevde felter
 
-            schema.append(bigquery.SchemaField(column_name, bq_type, mode=bq_mode))
+            schema.append(bigquery.SchemaField(str(column_name), bq_type, mode=bq_mode))
 
             column_to_bq_type[column_name] = bq_type
 
@@ -355,7 +373,7 @@ class BigQuery:
                 self._logger.info(f"{len(df)} rader lagret i {table_id}")
             except Exception as e:
                 self._logger.error(
-                    f"Error saving to BigQuery: {type(e).__name__}: {e} \n for dataframe {df.head()} with columns {df.columns}")
+                    f"Error saving to BigQuery: {type(e).__name__}: {e}")
                 self._logger.error(traceback.format_exc())
         elif if_exists == 'merge':
 
