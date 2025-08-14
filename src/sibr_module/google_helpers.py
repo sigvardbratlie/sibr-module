@@ -27,13 +27,32 @@ except ImportError:
 
 
 class Logger:
-    def __init__(self, log_name, root_path=None, write_type='a', enable_cloud_logging=False, cloud_log_name = None):
-        '''
+    """A flexible logger for both local and cloud-based logging.
 
+    This class sets up a logger that can write to a local file and/or
+    send logs to Google Cloud Logging. It automatically handles log file
+    creation and the cloud connection setup.
+
+    Attributes:
+        log_level: Property to get or set the logging level (e.g., 'INFO', 'DEBUG').
+        enable_cloud_logging (bool): Indicates if Google Cloud Logging is active.
+    """
+    def __init__(self, log_name : str,
+                 root_path : str =None,
+                 write_type : Literal['a','w'] = 'a',
+                 enable_cloud_logging : bool = False,
+                 cloud_log_name : str = None):
+        '''
+        Initialize a logger.
         :param log_name:
-        :param write_type: can take inn "w" or "a" for write or append
+        :param root_path: Optional. Default is None
+        :param write_type: A option to either replace or append to logs if the file already exists
+        :param enable_cloud_logging: Set to True for cloud logging
+        :param cloud_log_name: A specific log name for cloud logging. Variable is set to log_name if not specified.
         '''
         self._logName = log_name
+        if write_type not in ["a","w"]:
+            raise ValueError("write_type must be either 'a' or 'w'")
         if root_path:
             self._root = root_path
         elif os.getenv('DOCKER'):
@@ -54,12 +73,12 @@ class Logger:
                 cloud_log_name = log_name
             self.cloud_log_name = cloud_log_name
             self._logger.info(f'Cloud Logging is enabled. Initializing Google Cloud Logging for {self._logName} with cloud_log_name {self.cloud_log_name}.')
-            self.setup_cloudlogging()
+            self._setup_cloudlogging()
         else:
             self._logger.info(f'Cloud Logging is disabled. Using local logging to {self._path}.')
 
 
-    def setup_cloudlogging(self):
+    def _setup_cloudlogging(self):
         self.client = None
         try:
             self.client = cloud_logging.Client()
@@ -163,6 +182,15 @@ class Logger:
         self._logger.setLevel(level)
 
 class BigQuery:
+    """A helper class for interacting with Google BigQuery.
+
+        This class simplifies common BigQuery operations such as uploading
+        pandas DataFrames to tables and running SQL queries to fetch data.
+        It includes built-in logic for 'append', 'replace', and 'merge' operations.
+
+        Attributes:
+            project (str): The Google Cloud project ID associated with the client.
+        """
     def __init__(self, project_id : str, logger = None):
         '''
         Initialize a BigQuery client.
@@ -224,8 +252,18 @@ class BigQuery:
         first_valid_element = non_null_series.iloc[0]
         return type(first_valid_element).__name__
 
-    def to_bq(self, df, table_name, dataset_name, if_exists: Literal['append', 'replace', 'merge'] = 'append',
+    def to_bq(self, df : pd.DataFrame, table_name : str, dataset_name : str, if_exists: Literal['append', 'replace', 'merge'] = 'append',
               to_str=False, merge_on=None):
+        '''
+        Save a DataFrame to BigQuery.
+        :param df:
+        :param table_name:
+        :param dataset_name:
+        :param if_exists: Choose between 'append', 'replace', or 'merge'.
+        :param to_str: Optional to convert all columns to string.
+        :param merge_on: Required with if_exists = 'merge'.
+        :return:
+        '''
         dataset_id = f'{self.project}.{dataset_name}'
         table_id = f"{dataset_id}.{table_name}"
         if if_exists not in ['append', 'replace', 'merge']:
@@ -369,11 +407,11 @@ class BigQuery:
         else:
             raise ValueError(f"Invalid if_exists value: {if_exists}")
 
-    def read_bq(self, query, read_type: Literal["bigframes", "bq_client", "pandas_gbq"] = 'bq_client'):
+    def read_bq(self, query : str , read_type: Literal["bigframes", "bq_client", "pandas_gbq"] = 'bq_client'):
         '''
-        Leser en BigQuery-spørring og returnerer en DataFrame.
-        :param query:
-        :param read_type: choose between 'bigframes', 'bq_client' and 'pandas_gbq'
+        Read data from BigQuery.
+        :param query: SQL query; for examples "SELECT * FROM dataset_name.table_name LIMIT 1000"
+        :param read_type: Choose between 'bigframes', 'bq_client' and 'pandas_gbq'. Default is "bq_client"
         :return:
         '''
         if read_type == 'bq_client':
@@ -387,7 +425,7 @@ class BigQuery:
         self._logger.info(f"{len(df)} rader lest fra BigQuery")
         return df
 
-    def exe_query(self, query):
+    def exe_query(self, query : str):
         '''
         Execute a BigQuery query
         :param query:
@@ -398,7 +436,22 @@ class BigQuery:
         self._logger.info(f"Query executed: {query[:100]}... (truncated)")
 
 class SecretsManager:
+    """A simple client for fetching secrets from Google Secret Manager.
+
+        This class acts as a thin wrapper around Google's official client
+        to make the most common operation—retrieving the latest version
+        of a secret—as straightforward as possible.
+
+        Attributes:
+            project (str): The Google Cloud project ID associated with the client.
+            client: The underlying SecretManagerServiceClient instance.
+        """
     def __init__(self, project_id: str, logger = None):
+        '''
+        Initialize a SecretsManager client.
+        :param project_id:
+        :param logger: Optional, a Logger instance for logging.
+        '''
         self.project = project_id
         if logger is None:
             logger = Logger("SecretsManager")
@@ -407,6 +460,11 @@ class SecretsManager:
         self.logger.info("SecretsManager initialized.")
 
     def get_secret(self, secret_id: str):
+        '''
+        Get a secret from Secrets Manager.
+        :param secret_id:
+        :return:
+        '''
         name = {"name": f'projects/{self.project}/secrets/{secret_id}/versions/latest'}
         try:
             response = self.client.access_secret_version(name)
@@ -417,14 +475,22 @@ class SecretsManager:
             self.logger.error(str(e))
 
 class CStorage:
-    '''
-    A class for uploading files to Google Cloud Storage.
-    :param bucket_name: The name of the Google Cloud Storage bucket.
-    :param logger: An instance of Logger for logging.
-    :param CREDENTIALS_PATH: Optional path to a service account key file. If not provided, it will use the default credentials.
-    '''
+    """Client for file operations against Google Cloud Storage (GCS).
 
+        This class simplifies uploading and downloading files to a specific
+        GCS bucket. It can also read the content of certain file types
+        directly into memory (e.g., into a pandas DataFrame).
+
+        Attributes:
+            project (str): The Google Cloud project ID.
+        """
     def __init__(self,project_id,bucket_name, logger = None):
+        '''
+        Initialize a Google Cloud Storage client.
+        :param project_id:
+        :param bucket_name:
+        :param logger: Optional, a Logger instance for logging.
+        '''
         if logger is None:
             logger = Logger("CStorage")
         self._logger = logger
@@ -470,7 +536,7 @@ class CStorage:
         :param source_blob_name:
         :param destination_file_path:
         :param read_in_file: bool
-        :return:
+        :return: returns the file if read_in_file is True
         '''
         if not read_in_file and not destination_file_path:
             raise ValueError(
