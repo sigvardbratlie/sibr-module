@@ -9,9 +9,9 @@ authors = [
     { name="Sigvard Bratlie", email="sigvard@sibr.no" },
 ]
 description = "Help modules for different applications, especially for google cloud"
-readme = "README.md" # Lag denne filen!
+readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT License" } # Legg til en LICENSE-fil!
+license = { text = "MIT License" }
 keywords = ["google cloud", "bigquery", "gcs", "utilities"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -51,5 +51,5 @@ dependencies = ['bigframes',
  'openpyxl']
 
 [project.urls]
-"Homepage" = "https://github.com/ditt-brukernavn/sibr-module" # Eksempel
-"Bug Tracker" = "https://github.com/ditt-brukernavn/sibr-module/issues" # Eksempel
+"Homepage" = "https://github.com/sigvardbratlie/sibr-module"
+"Bug Tracker" = "https://github.com/sigvardbratlie/sibr-module/issues"
