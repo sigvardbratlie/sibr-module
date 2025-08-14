@@ -622,8 +622,13 @@ class CStorage:
                             with open(temp_filepath, "r") as f:
                                 output = f.read()
                         elif ext == "json":
-                            with open(temp_filepath, "r") as f:
-                                output = json.load(f)
+                            with open(temp_filepath, "r", encoding='utf-8') as f:
+                                content = f.read()
+                                try:
+                                    output = json.loads(content)
+                                except json.JSONDecodeError:
+                                    lines = content.strip().split('\n')
+                                    output = [json.loads(line) for line in lines if line]
                         elif ext in ('yaml', 'yml'):
                             with open(temp_filepath, 'r') as f:
                                 output = yaml.safe_load(f)
