@@ -323,39 +323,40 @@ class BigQuery:
         except Exception:
             table_exists = False
 
-        if dtype_map is None:
-            dtype_map = {
-                'object': 'STRING',
-                'string': 'STRING',
-                'category': 'STRING',
-                'str': 'STRING',
-                'list': ("STRING", "REPEATED"),
-                'int64': 'INTEGER',
-                'Int64': 'INTEGER',
-                'int64[pyarrow]': 'INTEGER',
-                'float32' : 'FLOAT',
-                'Float32' : 'FLOAT',
-                'float64': 'FLOAT',
-                'Float64': 'FLOAT',
-                'bool': 'BOOLEAN',
-                'boolean': 'BOOLEAN',
-                'decimal.Decimal': "NUMERIC",
-                'Decimal': "NUMERIC",
-                'datetime64[ns]': 'DATETIME',
-                'datetime': 'DATETIME',
-                'datetime64[ns, UTC]': 'TIMESTAMP',
-                'Timestamp': 'TIMESTAMP',
-                'date32[day][pyarrow]': 'DATE',
-                'datetime64[us]': 'DATETIME',
-            }
-
-        if explicit_schema is None:
-            explicit_schema = {}
-
         schema = None
         column_to_bq_type = {}
         if not autodetect:
+            if dtype_map is None:
+                dtype_map = {
+                    'object': 'STRING',
+                    'string': 'STRING',
+                    'category': 'STRING',
+                    'str': 'STRING',
+                    'list': ("STRING", "REPEATED"),
+                    'int64': 'INTEGER',
+                    'Int64': 'INTEGER',
+                    'int64[pyarrow]': 'INTEGER',
+                    'float32': 'FLOAT',
+                    'Float32': 'FLOAT',
+                    'float64': 'FLOAT',
+                    'Float64': 'FLOAT',
+                    'bool': 'BOOLEAN',
+                    'boolean': 'BOOLEAN',
+                    'decimal.Decimal': "NUMERIC",
+                    'Decimal': "NUMERIC",
+                    'datetime64[ns]': 'DATETIME',
+                    'datetime': 'DATETIME',
+                    'datetime64[ns, UTC]': 'TIMESTAMP',
+                    'Timestamp': 'TIMESTAMP',
+                    'date32[day][pyarrow]': 'DATE',
+                    'datetime64[us]': 'DATETIME',
+                }
+
+            if explicit_schema is None:
+                explicit_schema = {}
+
             schema = []
+
             for column_name, dtype in df.dtypes.items():
                 correct_dtype = self._get_dtype(df = df,
                                                 column_name=str(column_name))
