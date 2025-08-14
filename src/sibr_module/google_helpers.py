@@ -266,6 +266,7 @@ class BigQuery:
               if_exists: Literal['append', 'replace', 'merge'] = 'append',
               to_str=False,
               merge_on=None,
+              autodetect : bool = False,
               dtype_map : dict = None,
               explicit_schema : dict = None):
         '''
@@ -276,7 +277,9 @@ class BigQuery:
         :param if_exists: Choose between 'append', 'replace', or 'merge'.
         :param to_str: Optional to convert all columns to string.
         :param merge_on: Required with if_exists = 'merge'.
+        :param autodetect: boolean.
         :param dtype_map: Optional. Add a map from datatypes to desired BigQuery types as a dictionary. Examples: dtype_map = {'object': 'STRING','string': 'STRING','int64': 'INTEGER'}
+        :param explicit_schema: Optional. Add desired types to specific columns in your dataframe.
         :return:
 
         The default dtype_map is defined as
@@ -289,6 +292,8 @@ class BigQuery:
                 'int64': 'INTEGER',
                 'Int64': 'INTEGER',
                 'int64[pyarrow]': 'INTEGER',
+                'float32' : 'FLOAT',
+                'Float32' : 'FLOAT',
                 'float64': 'FLOAT',
                 'Float64': 'FLOAT',
                 'bool': 'BOOLEAN',
@@ -306,11 +311,11 @@ class BigQuery:
         dataset_id = f'{self.project}.{dataset_name}'
         table_id = f"{dataset_id}.{table_name}"
         if if_exists not in ['append', 'replace', 'merge']:
-            raise ValueError(f"Invalid if_exists value: {if_exists}. Choose between 'append', 'replace', or 'merge'.")
-        if dtype_map is not None and isinstance(dtype_map, dict):
-            raise ValueError(f"Invalid dtype_map value: {dtype_map}. Expected a dictionary.")
-        if explicit_schema is not None and isinstance(explicit_schema, dict):
-            raise ValueError(f"Invalid explicit_schema value: {explicit_schema}. Expected a dictionary.")
+            raise TypeError(f"Invalid if_exists value: {if_exists}. Choose between 'append', 'replace', or 'merge'.")
+        if dtype_map is not None and not isinstance(dtype_map, dict):
+            raise TypeError(f"Invalid dtype_map value: {dtype_map}. Expected a dictionary.")
+        if explicit_schema is not None and not isinstance(explicit_schema, dict):
+            raise TypeError(f"Invalid explicit_schema value: {explicit_schema}. Expected a dictionary.")
 
         try:
             self._bq_client.get_table(table_id)
@@ -328,6 +333,8 @@ class BigQuery:
                 'int64': 'INTEGER',
                 'Int64': 'INTEGER',
                 'int64[pyarrow]': 'INTEGER',
+                'float32' : 'FLOAT',
+                'Float32' : 'FLOAT',
                 'float64': 'FLOAT',
                 'Float64': 'FLOAT',
                 'bool': 'BOOLEAN',
@@ -345,30 +352,27 @@ class BigQuery:
         if explicit_schema is None:
             explicit_schema = {}
 
-        schema = []
+        schema = None
         column_to_bq_type = {}
-        for column_name, dtype in df.dtypes.items():
-            correct_dtype = self._get_dtype(df = df,
-                                            column_name=str(column_name))
-            bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
-            if correct_dtype not in dtype_map.keys() and correct_dtype is not None:
-                self._logger.warning(f"No mapping from {correct_dtype} to Big Query types. Current mapping: {dtype_map}")
+        if not autodetect:
+            schema = []
+            for column_name, dtype in df.dtypes.items():
+                correct_dtype = self._get_dtype(df = df,
+                                                column_name=str(column_name))
+                bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
+                if correct_dtype not in dtype_map.keys() and correct_dtype is not None:
+                    self._logger.warning(f"No mapping from {correct_dtype} to Big Query types. Current mapping: {dtype_map}")
 
-            if isinstance(bq_spec, tuple):
-                # Pakk ut type og modus fra tuppelet
-                # Dette er nøkkelen! Vi sender type og modus som separate argumenter.
-                bq_type, bq_mode = bq_spec
-            else:
-                # Hvis det er en vanlig kolonne, er typen bare strengen og modusen er standard
-                bq_type = bq_spec
-                bq_mode = "NULLABLE"  # Standardmodus for vanlige, ikke-påkrevde felter
+                if isinstance(bq_spec, tuple):
+                    bq_type, bq_mode = bq_spec
+                else:
+                    bq_type = bq_spec
+                    bq_mode = "NULLABLE"
 
-            schema.append(bigquery.SchemaField(str(column_name), bq_type, mode=bq_mode))
+                schema.append(bigquery.SchemaField(str(column_name), bq_type, mode=bq_mode))
+                column_to_bq_type[column_name] = bq_type
 
-            column_to_bq_type[column_name] = bq_type
-
-        # --- STEG 1: VASK DATAFRAME BASERT PÅ SKJEMA ---
-        df = self._clean_and_prepare_df(df, column_to_bq_type)
+            df = self._clean_and_prepare_df(df, column_to_bq_type)
 
         if if_exists in ['append', 'replace']:
 
@@ -377,17 +381,16 @@ class BigQuery:
                     self._logger.warning(f"Table {table_id} does not exist. Creating a new table.")
                 job_config = bigquery.LoadJobConfig(
                     write_disposition="WRITE_APPEND" if table_exists else "WRITE_TRUNCATE",
-                    schema=schema,  # Bruker eksplisitt schema
-                    # autodetect=True,
+                    schema=schema,
+                    autodetect=autodetect,
                 )
             if if_exists == 'replace':
                 job_config = bigquery.LoadJobConfig(
                     write_disposition="WRITE_TRUNCATE",
-                    schema=schema,  # Bruker eksplisitt schema
-                    # autodetect=True,
+                    schema=schema,
+                    autodetect=autodetect,
                 )
             try:
-
                 if to_str:
                     df = df.astype(str)
                 job = self._bq_client.load_table_from_dataframe(
@@ -412,9 +415,8 @@ class BigQuery:
                 job_config = bigquery.LoadJobConfig(
                     write_disposition="WRITE_TRUNCATE",
                     schema=schema,
-                    # autodetect=True,
+                    autodetect=autodetect,
                 )
-
                 if to_str:
                     df = df.astype(str)
 
@@ -422,14 +424,11 @@ class BigQuery:
                 job.result()  # Wait for the job to complete
                 self._logger.info(f"Staging table {staging_table_id} created with {len(df)} rows.")
 
-                # Dynamisk bygging av `ON`-betingelsen basert på merge_keys
                 on_condition = ' AND '.join([f'T.`{key}` = S.`{key}`' for key in merge_on])
 
-                # Dynamisk bygging av `UPDATE SET`-delen (oppdater alle kolonner unntatt nøklene)
                 update_cols = [col for col in df.columns if col not in merge_on]
                 update_set = ', '.join([f'T.`{col}` = S.`{col}`' for col in update_cols])
 
-                # Dynamisk bygging av `INSERT`-delen
                 insert_cols = ', '.join([f'`{col}`' for col in df.columns])
                 insert_values = ', '.join([f'S.`{col}`' for col in df.columns])
 
@@ -443,14 +442,12 @@ class BigQuery:
                                     INSERT ({insert_cols})
                                     VALUES ({insert_values})
                                 """
-                # self._logger.debug(f'Merge query: {merge_query[:1000]}... (truncated)')
 
                 self._logger.info("Executing MERGE statement...")
                 self.exe_query(merge_query)
                 self._logger.info(f"MERGE operation on {table_id} complete.")
 
             finally:
-                # --- STEG 3: Slett den midlertidige tabellen ---
                 self._logger.info(f"Deleting staging table: {staging_table_id}")
                 self._bq_client.delete_table(staging_table_id, not_found_ok=True)
         else:
