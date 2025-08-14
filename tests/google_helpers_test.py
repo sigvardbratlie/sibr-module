@@ -2,6 +2,7 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 import pandas as pd
+import numpy as np
 from dotenv import load_dotenv
 os.chdir("..")
 load_dotenv()
@@ -66,6 +67,20 @@ class TestBigQuery:
 
         # Sjekk at load_table_from_dataframe ble kalt
         mock_gcp_clients['bigquery'].return_value.load_table_from_dataframe.assert_called_once()
+
+    def test_get_dtype(self):
+        bq = BigQuery(project_id=PROJECT_ID)
+        df = pd.DataFrame({'a': [1,2],
+              "b": ["hei","du"],
+              "c" : [[2,3,4], ["2","3","4"]],})
+        dtype_a = bq._get_dtype(df, 'a')
+        dtype_b = bq._get_dtype(df, 'b')
+        dtype_c = bq._get_dtype(df, 'c')
+        print(dtype_a, dtype_b, dtype_c)
+
+        assert dtype_a == 'int64'
+        assert dtype_b == 'str'
+        assert dtype_c == 'list'
 
 
 class TestCStorage:

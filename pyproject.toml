@@ -48,7 +48,8 @@ dependencies = ['bigframes',
  'pyarrow',
  'joblib',
  'PyYaml',
- 'openpyxl']
+ 'openpyxl',
+ 'random']
 
 [project.urls]
 "Homepage" = "https://github.com/sigvardbratlie/sibr-module"

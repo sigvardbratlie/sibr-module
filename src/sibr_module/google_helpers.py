@@ -1,3 +1,5 @@
+import random
+
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud import storage
@@ -162,6 +164,11 @@ class Logger:
 
 class BigQuery:
     def __init__(self, project_id : str, logger = None):
+        '''
+        Initialize a BigQuery client.
+        :param project_id: Your Google Cloud project ID.
+        :param logger: Optional, a Logger instance for logging.
+        '''
         if not logger:
             logger = Logger("BigQuery")
         self._logger = logger
@@ -197,24 +204,25 @@ class BigQuery:
         self._logger.info("DataFrame cleaned and prepared for BigQuery upload.")
         return df_copy
 
-    def _get_dtype(self,df: pd.DataFrame, kolonne_navn: str):
+    def _get_dtype(self, df: pd.DataFrame, column_name: str):
         """
-        Finner den faktiske Python-datatypen til det første ikke-null elementet i en DataFrame-kolonne.
+        Finds the Python data type of the first non-null element in a DataFrame column.
 
-        Returnerer:
-            type: Datatypen til elementet (f.eks. <class 'str'>, <class 'decimal.Decimal'>),
-                  eller None hvis kolonnen er tom eller bare inneholder null-verdier.
+        :param df: The DataFrame.
+        :param column_name: The name of the column to check.
+        :return: The name of the data type (e.g., 'str', 'int'), or None if the column is empty or all-null.
         """
-        # Lag en ny serie uten null-verdier (NaN, None)
-        non_null_series = df[kolonne_navn].dropna()
+        # Lag en ny serie uten null-verdier (NaN, None, etc.)
+        non_null_series = df[column_name].dropna()
 
-        # Hvis serien er tom etter å ha fjernet null-verdier, har vi ingen type å sjekke
+        # Hvis serien er tom etter fjerning av null-verdier, returner None
         if non_null_series.empty:
+            self._logger.warning(f"Column '{column_name}' contains only null values or is empty.")
             return None
 
-        # Hent det første elementet og returner typen
-        first_element = non_null_series.iloc[0]
-        return type(first_element).__name__
+        # Hent det aller første elementet som ikke er null og returner typenavnet
+        first_valid_element = non_null_series.iloc[0]
+        return type(first_valid_element).__name__
 
     def to_bq(self, df, table_name, dataset_name, if_exists: Literal['append', 'replace', 'merge'] = 'append',
               to_str=False, merge_on=None):
@@ -268,10 +276,8 @@ class BigQuery:
                 bq_type = bq_spec
                 bq_mode = "NULLABLE"  # Standardmodus for vanlige, ikke-påkrevde felter
 
-            # Legg til feltet i skjemaet med riktig type OG riktig modus
             schema.append(bigquery.SchemaField(column_name, bq_type, mode=bq_mode))
 
-            # For vaskefunksjonen trenger vi kun selve datatypen (f.eks. "STRING")
             column_to_bq_type[column_name] = bq_type
 
         # --- STEG 1: VASK DATAFRAME BASERT PÅ SKJEMA ---
