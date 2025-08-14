@@ -266,7 +266,8 @@ class BigQuery:
               if_exists: Literal['append', 'replace', 'merge'] = 'append',
               to_str=False,
               merge_on=None,
-              dtype_map : dict = None):
+              dtype_map : dict = None,
+              explicit_schema : dict = None):
         '''
         Save a DataFrame to BigQuery.
         :param df:
@@ -306,6 +307,11 @@ class BigQuery:
         table_id = f"{dataset_id}.{table_name}"
         if if_exists not in ['append', 'replace', 'merge']:
             raise ValueError(f"Invalid if_exists value: {if_exists}. Choose between 'append', 'replace', or 'merge'.")
+        if dtype_map is not None and isinstance(dtype_map, dict):
+            raise ValueError(f"Invalid dtype_map value: {dtype_map}. Expected a dictionary.")
+        if explicit_schema is not None and isinstance(explicit_schema, dict):
+            raise ValueError(f"Invalid explicit_schema value: {explicit_schema}. Expected a dictionary.")
+
         try:
             self._bq_client.get_table(table_id)
             table_exists = True
@@ -336,8 +342,8 @@ class BigQuery:
                 'datetime64[us]': 'DATETIME',
             }
 
-        explicit_schema = {
-        }
+        if explicit_schema is None:
+            explicit_schema = {}
 
         schema = []
         column_to_bq_type = {}
