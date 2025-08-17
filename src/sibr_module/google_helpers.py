@@ -346,6 +346,7 @@ class BigQuery:
                     'Decimal': "NUMERIC",
                     'datetime64[ns]': 'DATETIME',
                     'datetime': 'DATETIME',
+                    'date' : 'DATE',
                     'datetime64[ns, UTC]': 'TIMESTAMP',
                     'Timestamp': 'TIMESTAMP',
                     'date32[day][pyarrow]': 'DATE',
