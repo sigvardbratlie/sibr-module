@@ -351,6 +351,7 @@ class BigQuery:
                     'Timestamp': 'TIMESTAMP',
                     'date32[day][pyarrow]': 'DATE',
                     'datetime64[us]': 'DATETIME',
+                    'geometry' : "GEOGRAPHY",
                 }
 
             if explicit_schema is None:
