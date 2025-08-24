@@ -387,7 +387,7 @@ class BigQuery:
                     schema=schema,
                     autodetect=autodetect,
                 )
-            if if_exists == 'replace':
+            elif if_exists == 'replace':
                 job_config = bigquery.LoadJobConfig(
                     write_disposition="WRITE_TRUNCATE",
                     schema=schema,
