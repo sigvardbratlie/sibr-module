@@ -333,9 +333,11 @@ class BigQuery:
                     'category': 'STRING',
                     'str': 'STRING',
                     'list': ("STRING", "REPEATED"),
+                    'int' : 'INTEGER',
                     'int64': 'INTEGER',
                     'Int64': 'INTEGER',
                     'int64[pyarrow]': 'INTEGER',
+                    'float' : 'FLOAT',
                     'float32': 'FLOAT',
                     'Float32': 'FLOAT',
                     'float64': 'FLOAT',
@@ -364,7 +366,7 @@ class BigQuery:
                                                 column_name=str(column_name))
                 bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
                 if correct_dtype not in dtype_map.keys() and correct_dtype is not None:
-                    self._logger.warning(f"No mapping from {correct_dtype} to Big Query types. Current mapping: {dtype_map}")
+                    self._logger.warning(f"No mapping from {correct_dtype} to Big Query types for column {column_name}. Current mapping: {dtype_map}")
 
                 if isinstance(bq_spec, tuple):
                     bq_type, bq_mode = bq_spec
