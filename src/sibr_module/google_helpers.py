@@ -354,6 +354,7 @@ class BigQuery:
                     'date32[day][pyarrow]': 'DATE',
                     'datetime64[us]': 'DATETIME',
                     'geometry' : "GEOGRAPHY",
+                    "Polygon" : "GEOGRAPHY",
                 }
 
             if explicit_schema is None:
