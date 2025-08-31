@@ -355,6 +355,7 @@ class BigQuery:
                     'datetime64[us]': 'DATETIME',
                     'geometry' : "GEOGRAPHY",
                     "Polygon" : "GEOGRAPHY",
+                    'Timedelta' : "INTERVAL"
                 }
 
             if explicit_schema is None:
