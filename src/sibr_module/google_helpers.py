@@ -333,6 +333,7 @@ class BigQuery:
                     'category': 'STRING',
                     'str': 'STRING',
                     'list': ("STRING", "REPEATED"),
+                    "ndarray" : ("STRING", "REPEATED"),
                     'int' : 'INTEGER',
                     'int64': 'INTEGER',
                     'Int64': 'INTEGER',
@@ -414,6 +415,13 @@ class BigQuery:
             if not merge_on or not isinstance(merge_on, list):
                 raise ValueError(
                     "merge_on parameter must be provided when if_exists is 'merge' and must be a list of column names.")
+
+            duplicates = df.duplicated(subset=merge_on).sum()
+            if duplicates or len(duplicates)>0:
+                self._logger.warning(f'There are {len(duplicates)} duplicates in the dataframe based on the merge_on columns {merge_on}. They will be removed before merging starts')
+                df = df.drop_duplicates(subset=merge_on)
+
+
             staging_table_id = f"{table_id}_staging_{uuid.uuid4().hex}"
             self._logger.info(f"Starting MERGE. Uploading data to staging table: {staging_table_id}")
 
