@@ -416,9 +416,9 @@ class BigQuery:
                 raise ValueError(
                     "merge_on parameter must be provided when if_exists is 'merge' and must be a list of column names.")
 
-            duplicates = df.duplicated(subset=merge_on).sum()
-            if duplicates or len(duplicates)>0:
-                self._logger.warning(f'There are {len(duplicates)} duplicates in the dataframe based on the merge_on columns {merge_on}. They will be removed before merging starts')
+            duplicates = (df.duplicated(subset=merge_on).sum())
+            if duplicates or (duplicates)>0:
+                self._logger.warning(f'There are {(duplicates)} duplicates in the dataframe based on the merge_on columns {merge_on}. They will be removed before merging starts')
                 df = df.drop_duplicates(subset=merge_on)
 
 
