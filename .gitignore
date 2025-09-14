@@ -5,3 +5,6 @@
 *.json
 *.log
 examples/
+
+*.pyx
+__pycache__/
