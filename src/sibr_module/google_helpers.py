@@ -21,6 +21,131 @@ import yaml
 import tomllib
 from dotenv import dotenv_values
 
+class GoogleAPICallError(Exception): pass
+class DefaultCredentialsError(Exception): pass
+class CloudLoggingHandler:
+    def __init__(self, client, name): pass
+    def setLevel(self, level): pass
+class cloud_logging:
+    @staticmethod
+    def Client():
+        # Simuler en feil for testing
+        # raise DefaultCredentialsError("Mock Credentials Error")
+        class MockClient:
+            project = "mock-project"
+            def setup_logging(self): pass
+        return MockClient()
+
+
+class LoggerV2(logging.Logger):
+    """
+    A flexible logger that inherits from logging.Logger, supporting both
+    local and cloud-based logging with an interchangeable interface.
+
+    Attributes:
+        log_level: Property to get or set the logging level (e.g., 'INFO', 'DEBUG').
+        cloud_logging_enabled (bool): Indicates if Google Cloud Logging is active.
+    """
+    def __init__(self,
+                 name: str,
+                 level: int = logging.INFO,
+                 root_path: Optional[str] = None,
+                 write_type: Literal['a', 'w'] = 'a',
+                 enable_cloud_logging: bool = False,
+                 cloud_log_name: Optional[str] = None):
+        """
+        Initialize the logger.
+        :param name: Name of the logger, typically __name__.
+        :param level: Initial logging level.
+        :param root_path: Optional root path for log files. Defaults to project root or CWD.
+        :param write_type: 'a' to append to existing logs, 'w' to overwrite.
+        :param enable_cloud_logging: Set to True to enable Google Cloud Logging.
+        :param cloud_log_name: Specific name for the cloud log stream. Defaults to `name`.
+        """
+        # Kall __init__ til forelderklassen (logging.Logger)
+        super().__init__(name, level)
+
+        if write_type not in ["a", "w"]:
+            raise ValueError("write_type must be either 'a' or 'w'")
+        self._write_type = write_type
+
+        # Bestem rotsti for logger
+        self._root = Path(root_path) if root_path else self._find_project_root()
+        self._log_dir = self._create_log_folder()
+        self.log_file_path = self._log_dir / f'{self.name}.log'
+
+        self.cloud_logging_enabled = enable_cloud_logging
+        self.cloud_log_name = cloud_log_name or self.name # Bruk `name` hvis `cloud_log_name` er None
+
+        # Sørg for at vi ikke legger til handlere flere ganger hvis loggeren allerede finnes
+        if not self.hasHandlers():
+            self._create_local_handlers()
+            if self.cloud_logging_enabled:
+                self.info(f'Cloud Logging is enabled. Initializing for {self.name} with cloud_log_name {self.cloud_log_name}.')
+                self._setup_cloud_logging()
+            else:
+                self.info(f'Cloud Logging is disabled. Using local logging to {self.log_file_path}.')
+
+    def _setup_cloud_logging(self):
+        try:
+            client = cloud_logging.Client()
+            handler = CloudLoggingHandler(client, name=self.cloud_log_name)
+            self.addHandler(handler)
+            self.info(f'Google Cloud Logging initialized with project: {client.project}')
+        except DefaultCredentialsError as e:
+            self.error(f'Authentication error initializing Google Cloud Logging: {e}', exc_info=True)
+            self.warning('Cloud Logging is unavailable due to authentication issues.')
+        except GoogleAPICallError as e:
+            self.error(f'Google API Call Error during Cloud Logging initialization: {e}', exc_info=True)
+            self.warning('Cloud Logging is unavailable due to an API error.')
+        except Exception as e:
+            self.error(f'Unexpected error during Cloud Logging initialization: {e}', exc_info=True)
+            self.warning('Cloud Logging is unavailable due to an unexpected error.')
+
+    @property
+    def log_level(self) -> str:
+        """Gets the current logging level name."""
+        return logging.getLevelName(self.getEffectiveLevel())
+
+    @log_level.setter
+    def log_level(self, level: str | int):
+        """Sets the logging level for the logger and all its handlers."""
+        log_level_int = logging.getLevelName(level.upper()) if isinstance(level, str) else level
+        if not isinstance(log_level_int, int):
+            raise ValueError(f'Invalid log level: {level}.')
+
+        self.setLevel(log_level_int)
+        for handler in self.handlers:
+            handler.setLevel(log_level_int)
+
+    def _create_local_handlers(self):
+        # Fil-handler
+        file_handler = logging.FileHandler(self.log_file_path, mode=self._write_type)
+        file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        self.addHandler(file_handler)
+
+        # Konsoll-handler
+        console_handler = logging.StreamHandler()
+        console_formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(console_formatter)
+        self.addHandler(console_handler)
+
+    def _create_log_folder(self) -> Path:
+        path = self._root / 'logfiles'
+        path.mkdir(exist_ok=True) # exist_ok=True er enklere enn å sjekke om den finnes
+        return path
+
+    def _find_project_root(self) -> Path:
+        if os.getenv('DOCKER'):
+            return Path('/app')
+        # En enklere og mer vanlig måte er å se etter en kjent fil/mappe som .git eller pyproject.toml
+        current_path = Path.cwd()
+        while current_path != current_path.parent:
+            if (current_path / ".git").exists() or (current_path / ".venv").exists() or (current_path / "pyproject.toml").exists():
+                return current_path
+            current_path = current_path.parent
+        return Path.cwd() # Fallback
 
 class Logger:
     """A flexible logger for both local and cloud-based logging.
