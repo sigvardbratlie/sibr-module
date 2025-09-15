@@ -2,19 +2,21 @@ import pandas as pd
 import uuid
 import traceback
 from typing import Literal,Optional,Any,Dict,List,TYPE_CHECKING
-from google.auth.exceptions import DefaultCredentialsError
-from google.api_core.exceptions import GoogleAPICallError, NotFound, AlreadyExists
 import logging
 from pathlib import Path
 import os
-import joblib
 import json
-import yaml
-import tomllib
+
+from google.auth.exceptions import DefaultCredentialsError
+from google.api_core.exceptions import GoogleAPICallError, NotFound, AlreadyExists
 from dotenv import dotenv_values
 
 if TYPE_CHECKING:
     from google.cloud import bigquery
+    import pandas_gbq as pbq
+    import joblib
+    import yaml
+    import tomllib
     from google.cloud import storage
     from google.cloud import secretmanager
     import pandas_gbq as pbq
@@ -315,6 +317,8 @@ class BigQuery:
         try:
             from google.cloud import bigquery
             import pandas_gbq as pbq
+            import joblib
+            import yaml
         except ImportError:
             raise ImportError(
                 "BigQuery krever 'google-cloud-bigquery' og 'pandas-gbq'. "
@@ -642,6 +646,7 @@ class SecretsManager:
         """
         try:
             from google.cloud import secretmanager
+            import tomllib
         except ImportError:
             raise ImportError(f'SecretsManager requires "google-cloud-secretmanager"'
                               "Run pip install 'sibr-module[secretsmanager]' to install")
