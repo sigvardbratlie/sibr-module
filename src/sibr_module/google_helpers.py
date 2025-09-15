@@ -1,17 +1,9 @@
-import random
 import pandas as pd
-from google.cloud import bigquery
-from google.cloud import storage
 import uuid
-import pandas_gbq as pbq
-from typing import Literal,Optional,Any,Dict,List
 import traceback
-from google.api_core.exceptions import NotFound, AlreadyExists
-from google.cloud import secretmanager
-from google.cloud import logging as cloud_logging
+from typing import Literal,Optional,Any,Dict,List,TYPE_CHECKING
 from google.auth.exceptions import DefaultCredentialsError
-from google.api_core.exceptions import GoogleAPICallError
-from google.cloud.logging_v2.handlers import CloudLoggingHandler
+from google.api_core.exceptions import GoogleAPICallError, NotFound, AlreadyExists
 import logging
 from pathlib import Path
 import os
@@ -21,20 +13,13 @@ import yaml
 import tomllib
 from dotenv import dotenv_values
 
-class GoogleAPICallError(Exception): pass
-class DefaultCredentialsError(Exception): pass
-class CloudLoggingHandler:
-    def __init__(self, client, name): pass
-    def setLevel(self, level): pass
-class cloud_logging:
-    @staticmethod
-    def Client():
-        # Simuler en feil for testing
-        # raise DefaultCredentialsError("Mock Credentials Error")
-        class MockClient:
-            project = "mock-project"
-            def setup_logging(self): pass
-        return MockClient()
+if TYPE_CHECKING:
+    from google.cloud import bigquery
+    from google.cloud import storage
+    from google.cloud import secretmanager
+    import pandas_gbq as pbq
+    from google.cloud.logging_v2.handlers import CloudLoggingHandler
+    from google.cloud import logging as cloud_logging
 
 
 class LoggerV2(logging.Logger):
@@ -62,7 +47,14 @@ class LoggerV2(logging.Logger):
         :param enable_cloud_logging: Set to True to enable Google Cloud Logging.
         :param cloud_log_name: Specific name for the cloud log stream. Defaults to `name`.
         """
-        # Kall __init__ til forelderklassen (logging.Logger)
+        try:
+            from google.cloud.logging_v2.handlers import CloudLoggingHandler
+            from google.cloud import logging as cloud_logging
+        except ImportError:
+            raise ImportError(
+                "Logger module requires 'google-cloud-logging_v2-handlers-CloudLoggingHandler' and 'google-cloud-logging-cloud-logging"
+                "Run pip install 'sibr-module[logging] to install"
+            )
         super().__init__(name, level)
 
         if write_type not in ["a", "w"]:
@@ -165,6 +157,13 @@ class Logger:
         :param enable_cloud_logging: Set to True for cloud logging
         :param cloud_log_name: A specific log name for cloud logging. Variable is set to log_name if not specified.
         '''
+        try:
+            from google.cloud.logging_v2.handlers import CloudLoggingHandler
+        except ImportError:
+            raise ImportError(
+                "Logger module requires 'google-cloud-logging_v2-handlers-CloudLoggingHandler'"
+                "Install it with: pip install 'sibr-module[logging]"
+            )
         self._logName = log_name
         if write_type not in ["a","w"]:
             raise ValueError("write_type must be either 'a' or 'w'")
@@ -313,9 +312,17 @@ class BigQuery:
         :param logger: Optional, a Logger instance for logging.
         :param dataset: Optional, the name of the BigQuery dataset.
         '''
+        try:
+            from google.cloud import bigquery
+            import pandas_gbq as pbq
+        except ImportError:
+            raise ImportError(
+                "BigQuery krever 'google-cloud-bigquery' og 'pandas-gbq'. "
+                "Installer den med: pip install 'sibr-module[bigquery]'"
+            )
         if not logger:
-            logger = Logger("BigQuery")
-        self._logger = logger
+            logger = logging.getLogger("BigQuery")
+        self.logger = logger
         self.dataset = dataset
         if project_id is None:
             cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -327,10 +334,10 @@ class BigQuery:
             self._bq_client = bigquery.Client(project=self.project)
             self._credentials = self._bq_client._credentials
 
-            self._logger.info(f"BigQuery client initialized with project_id: {self.project}")
+            self.logger.info(f"BigQuery client initialized with project_id: {self.project}")
         except Exception as e:
-            self._logger.error(f"Error initializing BigQuery client: {e}")
-            self._logger.error(traceback.format_exc())
+            self.logger.error(f"Error initializing BigQuery client: {e}")
+            self.logger.error(traceback.format_exc())
             raise ImportError(f"Error initializing BigQuery client: {e}, cwd: {os.getcwd()}")
 
     def _clean_and_prepare_df(self, df: pd.DataFrame, schema_mapping: dict) -> pd.DataFrame:
@@ -351,7 +358,7 @@ class BigQuery:
                 # Konverter til None der det er NaT (Not a Time), som BigQuery-klienten håndterer
                 df_copy[column] = df_copy[column].replace({pd.NaT: None})
 
-        self._logger.info("DataFrame cleaned and prepared for BigQuery upload.")
+        self.logger.info("DataFrame cleaned and prepared for BigQuery upload.")
         return df_copy
 
     def _get_dtype(self, df: pd.DataFrame, column_name: str):
@@ -367,7 +374,7 @@ class BigQuery:
 
         # Hvis serien er tom etter fjerning av null-verdier, returner None
         if non_null_series.empty:
-            self._logger.warning(f"Column '{column_name}' contains only null values or is empty.")
+            self.logger.warning(f"Column '{column_name}' contains only null values or is empty.")
             return None
 
         # Hent det aller første elementet som ikke er null og returner typenavnet
@@ -485,7 +492,7 @@ class BigQuery:
                                                 column_name=str(column_name))
                 bq_spec = explicit_schema.get(column_name, dtype_map.get(correct_dtype, 'STRING'))
                 if correct_dtype not in dtype_map.keys() and correct_dtype is not None:
-                    self._logger.warning(f"No mapping from {correct_dtype} to Big Query types for column {column_name}. Current mapping: {dtype_map}")
+                    self.logger.warning(f"No mapping from {correct_dtype} to Big Query types for column {column_name}. Current mapping: {dtype_map}")
 
                 if isinstance(bq_spec, tuple):
                     bq_type, bq_mode = bq_spec
@@ -502,7 +509,7 @@ class BigQuery:
 
             if if_exists == 'append':
                 if not table_exists:
-                    self._logger.warning(f"Table {table_id} does not exist. Creating a new table.")
+                    self.logger.warning(f"Table {table_id} does not exist. Creating a new table.")
                 job_config = bigquery.LoadJobConfig(
                     write_disposition="WRITE_APPEND" if table_exists else "WRITE_TRUNCATE",
                     schema=schema,
@@ -521,11 +528,11 @@ class BigQuery:
                     df, table_id, job_config=job_config
                 )
                 job.result()
-                self._logger.info(f"{len(df)} rader lagret i {table_id}")
+                self.logger.info(f"{len(df)} rader lagret i {table_id}")
             except Exception as e:
-                self._logger.error(
+                self.logger.error(
                     f"Error saving to BigQuery: {type(e).__name__}: {e}")
-                self._logger.error(traceback.format_exc())
+                self.logger.error(traceback.format_exc())
         elif if_exists == 'merge':
 
             if not merge_on or not isinstance(merge_on, list):
@@ -534,12 +541,12 @@ class BigQuery:
 
             duplicates = (df.duplicated(subset=merge_on).sum())
             if duplicates or (duplicates)>0:
-                self._logger.warning(f'There are {(duplicates)} duplicates in the dataframe based on the merge_on columns {merge_on}. They will be removed before merging starts')
+                self.logger.warning(f'There are {(duplicates)} duplicates in the dataframe based on the merge_on columns {merge_on}. They will be removed before merging starts')
                 df = df.drop_duplicates(subset=merge_on)
 
 
             staging_table_id = f"{table_id}_staging_{uuid.uuid4().hex}"
-            self._logger.info(f"Starting MERGE. Uploading data to staging table: {staging_table_id}")
+            self.logger.info(f"Starting MERGE. Uploading data to staging table: {staging_table_id}")
 
             try:
 
@@ -553,7 +560,7 @@ class BigQuery:
 
                 job = self._bq_client.load_table_from_dataframe(df, staging_table_id, job_config=job_config)
                 job.result()  # Wait for the job to complete
-                self._logger.info(f"Staging table {staging_table_id} created with {len(df)} rows.")
+                self.logger.info(f"Staging table {staging_table_id} created with {len(df)} rows.")
 
                 on_condition = ' AND '.join([f'T.`{key}` = S.`{key}`' for key in merge_on])
 
@@ -574,12 +581,12 @@ class BigQuery:
                                     VALUES ({insert_values})
                                 """
 
-                self._logger.info("Executing MERGE statement...")
+                self.logger.info("Executing MERGE statement...")
                 self.exe_query(merge_query)
-                self._logger.info(f"MERGE operation on {table_id} complete.")
+                self.logger.info(f"MERGE operation on {table_id} complete.")
 
             finally:
-                self._logger.info(f"Deleting staging table: {staging_table_id}")
+                self.logger.info(f"Deleting staging table: {staging_table_id}")
                 self._bq_client.delete_table(staging_table_id, not_found_ok=True)
         else:
             raise ValueError(f"Invalid if_exists value: {if_exists}")
@@ -599,7 +606,7 @@ class BigQuery:
             raise ValueError(
                 f"Invalid read_type: {read_type}. Choose between 'bigframes', 'bq_client' and 'pandas_gbq'")
         #df.replace(['nan', 'None', '', 'null', 'NA', '<NA>', 'NaN', 'NAType'], np.nan, inplace=True)
-        self._logger.info(f"{len(df)} rader lest fra BigQuery")
+        self.logger.info(f"{len(df)} rader lest fra BigQuery")
         return df
 
     def exe_query(self, query : str):
@@ -610,8 +617,7 @@ class BigQuery:
         '''
         job = self._bq_client.query(query)
         job.result()
-        self._logger.info(f"Query executed: {query[:100]}... (truncated)")
-
+        self.logger.info(f"Query executed: {query[:100]}... (truncated)")
 
 class SecretsManager:
     """
@@ -634,6 +640,11 @@ class SecretsManager:
             project_id (str, optional): Your Google Cloud Project ID.
             logger (Logger, optional): A logger instance for logging messages.
         """
+        try:
+            from google.cloud import secretmanager
+        except ImportError:
+            raise ImportError(f'SecretsManager requires "google-cloud-secretmanager"'
+                              "Run pip install 'sibr-module[secretsmanager]' to install")
         if project_id is None:
             cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             if cred_path and os.path.exists(cred_path):
@@ -828,9 +839,16 @@ class CStorage:
         :param bucket_name:
         :param logger: Optional, a Logger instance for logging.
         '''
+        try:
+            from google.cloud import storage
+        except ImportError:
+            raise ImportError(
+                "CStorage krever 'google-cloud-storage'. "
+                "Install it with: pip install 'sibr-module[storage]'"
+            )
         if logger is None:
-            logger = Logger("CStorage")
-        self._logger = logger
+            logger = logging.getLogger("CStorage")
+        self.logger = logger
         self._bucket_name = bucket_name
         if project_id is None:
             cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -840,9 +858,9 @@ class CStorage:
         self.project = project_id
         try:
             self._client = storage.Client(project=project_id)
-            self._logger.info(f"Google Cloud Storage client initialized with bucket: {self._bucket_name}")
+            self.logger.info(f"Google Cloud Storage client initialized with bucket: {self._bucket_name}")
         except Exception as e:
-            self._logger.error(f"Error initializing Google Cloud Storage client: {e}")
+            self.logger.error(f"Error initializing Google Cloud Storage client: {e}")
             raise ImportError(f"Error initializing Google Cloud Storage client: {e}")
 
     def upload(self, local_file_path : str, destination_blob_name : str=None):
@@ -957,6 +975,22 @@ class CStorage:
             raise e
 
 
+
+
+# class GoogleAPICallError(Exception): pass
+# class DefaultCredentialsError(Exception): pass
+# class CloudLoggingHandler:
+#     def __init__(self, client, name): pass
+#     def setLevel(self, level): pass
+# class cloud_logging:
+#     @staticmethod
+#     def Client():
+#         # Simuler en feil for testing
+#         # raise DefaultCredentialsError("Mock Credentials Error")
+#         class MockClient:
+#             project = "mock-project"
+#             def setup_logging(self): pass
+#         return MockClient()
 
 
 
