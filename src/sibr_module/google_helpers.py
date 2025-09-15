@@ -102,13 +102,7 @@ class LoggerV2(logging.Logger):
             self.error(f'Unexpected error during Cloud Logging initialization: {e}', exc_info=True)
             self.warning('Cloud Logging is unavailable due to an unexpected error.')
 
-    @property
-    def log_level(self) -> str:
-        """Gets the current logging level name."""
-        return logging.getLevelName(self.getEffectiveLevel())
-
-    @log_level.setter
-    def log_level(self, level: str | int):
+    def set_global_level(self, level: str | int):
         """Sets the logging level for the logger and all its handlers."""
         log_level_int = logging.getLevelName(level.upper()) if isinstance(level, str) else level
         if not isinstance(log_level_int, int):
