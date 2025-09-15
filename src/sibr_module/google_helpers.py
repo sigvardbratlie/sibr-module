@@ -705,6 +705,8 @@ class SecretsManager:
             return
 
         for secret_id, secret_value in secrets_to_upload.items():
+            if secret_id=="GOOGLE_APPLICATION_CREDENTIALS":
+                continue
             if secret_value:  # Do not upload empty values
                 self._create_or_update_secret(secret_id.upper(), secret_value)
         self.logger.info(f"--- Finished upload from {filepath} ---")

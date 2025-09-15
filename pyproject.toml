@@ -1,6 +1,6 @@
 [project]
 name = "sibr-module"
-version = "0.2.3"
+version = "0.2.4"
 description = "A collection of helper modules for interacting with Google Cloud Platform services, designed to simplify common workflows."
 authors = [
     {name = "sigvardbratlie",email = "sigvard.bratlie@gmail.com"}
