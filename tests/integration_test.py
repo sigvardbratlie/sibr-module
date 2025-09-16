@@ -2,7 +2,7 @@ import os
 import numpy as np
 os.chdir("..")
 import pytest
-from src.sibr_module.google_helpers import *
+from src.sibr_module.logging import *
 from dotenv import load_dotenv
 load_dotenv()
 
